@@ -1,27 +1,85 @@
+//HANDLE CONVERSION TO STRING
+#include <iostream>
+#include <string>
+#include <sstream> 
+
+//ARDUINO SENSOR LIBRARY
+#include <Adafruit_Sensor.h>
+
+//THINGSPEAK LIBRARY
+#include "ThingSpeak.h"
+unsigned long myChannelNumber = 2110271;
+const char * myWriteAPIKey = "AXCQ3SZWHB5A5CVQ";
+
+//WIFI
+#include <WiFiClient.h>
 #include <ESP8266WiFi.h>
 const char *ssid = "iPhone (4)";
 const char *password = "abc12345";
-unsigned int WiFiRetries;
+unsigned int WiFiRetries = 10;
 
+//ERRORS AND TIME
 int errorCount;
 unsigned long lastError = 0;
 unsigned long lastLog = 0;
 unsigned long period = 5000;
 
-#include <dht_nonblocking.h>
-#define DHT_SENSOR_TYPE DHT_TYPE_11
-static const int DHT_SENSOR_PIN = 15;
+//DHT11 MODULE
+#include "DHT.h"
+#define DHTPIN 15
+#define DHTTYPE DHT11   // DHT 11
+DHT dht(DHTPIN, DHTTYPE);
 
+//THERMOCOUPLE
 #include "max6675.h"
 int thermoDO = 23;
 int thermoCS = 22;
 int thermoCLK = 24;
+MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
+
+//OLED SCREEN
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define SCREEN_WIDTH 128  // OLED display width, in pixels
+#define SCREEN_HEIGHT 64  // OLED display height, in pixels
+#define OLED_RESET    21  // Reset pin # (or -1 if sharing reset pin)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+void connectWiFi(){
+  //Connect to WiFi Network
+  Serial.println(F("Connecting to WiFi"));
+  Serial.println(F("..."));
+  WiFi.begin(ssid, password);
+
+  int i = 0;
+  while ((WiFi.status() != WL_CONNECTED) && (i < WiFiRetries)) {
+    i++;
+    delay(250);
+    Serial.print(F("."));
+    WiFi.begin(ssid, password);
+  }
+  if (i > 5) {
+    Serial.println("WiFi connection failed: Connection timed out.");
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println(F("WiFi connected!"));
+    Serial.println(F("IP address: "));
+    Serial.println(WiFi.localIP());
+  }
+}
 
 void setup() {
+  WiFiClient client;
+  ThingSpeak.begin(client);
   connectWiFi();
-  HTTPClient http;
-  DHT_nonblocking dht_sensor(DHT_SENSOR_PIN, DHT_SENSOR_TYPE);
-  MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
+  {
+    Serial.println(F("SSD1306 allocation failed"));
+    while(1); //Don't proceed, loop forever
+  }
+  else{
+    Serial.println(F("SSD1306 allocation successful."));
+  }
   Serial.begin(9600);
 }
 
@@ -30,78 +88,68 @@ void loop() {
   if((millis() - lastLog) > period){
     if(WiFi.status() == WL_CONNECTED){
       errorCount = 0;
-      WiFiClient client;
-      HTTPClient http;
 
-      String updateThermocouple = "GET https://api.thingspeak.com/update?api_key=AXCQ3SZWHB5A5CVQ&field1=";
-      String updateHumid = "GET https://api.thingspeak.com/update?api_key=AXCQ3SZWHB5A5CVQ&field2=";
-      String updateTemp = "GET https://api.thingspeak.com/update?api_key=AXCQ3SZWHB5A5CVQ&field3=";
-
-      float temperature;
-      float humidity;
       float thermocouple = readThermocouple();
-      if( dht_sensor.measure(temperature, humidity)  == true ){
-        //Update Temperature field
-        http.begin(client, (updateTemp + temperature).c_str());
-        // Send HTTP GET request
-        int httpResponseCode = http.GET();
-        Serial.println("Temp field HTTP error code:");
-        Serial.println(httpResponseCode);
+      float humidity = dht.readHumidity();
+      float temperature = dht.readTemperature();
 
-        //Update Humidity field
-        http.begin(client, (updateHumid + humidity).c_str());
-        // Send HTTP GET request
-        int httpResponseCode = http.GET();
-        Serial.println("Humidity Field HTTP error code:");
-        Serial.println(httpResponseCode);
-        http.end();
+      if (!isnan(thermocouple)){
+        //Update Thermocouple field
+        ThingSpeak.writeField(myChannelNumber, 1, thermocouple, myWriteAPIKey);
+        printOLED("Temp. thermocouple (C): ");
+        printOLED(thermocouple);
+        lastLog = millis();
       }
-      
-      //Update Thermocuple field
-      http.begin(client, (updateThermocouple + thermocouple).c_str());
-      // Send HTTP GET request
-      int httpResponseCode = http.GET();
-      Serial.println("Thermocouple Field HTTP error code:");
-      Serial.println(httpResponseCode);
-      http.end();
+      else{
+        printOLED("Error reading thermocouple temperature.");
+      }
 
-      lastLog = millis();
+      if (!isnan(humidity)){
+        //Update Humidity field
+        ThingSpeak.writeField(myChannelNumber, 2, humidity, myWriteAPIKey);
+        printOLED("Humidity (%): ");
+        printOLED(humidity);
+        lastLog = millis();
+      }
+      else{
+        printOLED("Error reading DHT11 humidity.");
+      }
+
+      if (!isnan(temperature)){
+        //Update Temperature field
+        ThingSpeak.writeField(myChannelNumber, 3, temperature, myWriteAPIKey);
+        printOLED("Temp. DHT11 (C):");
+        printOLED(temperature);
+        lastLog = millis();
+      }
+      else{
+        printOLED("Error reading DHT11 temperature.");
+      }
     }
     else{
-      Serial.println("WiFi connection error #" + errorCount);
-      Serial.println("Last error ocurred: " + errorCount + " milliseconds ago.");
-      connectWifi();
+      Serial.println();
+      Serial.println("WiFi connection error #");
+      Serial.println(errorCount);
+      Serial.println("Last error ocurred: ");
+      Serial.println(errorCount);
+      Serial.println(" milliseconds ago.");
+      connectWiFi();
       lastError = millis();
       errorCount++;
     }
   }
 }
 
-void connectWiFi(){
-  //Connect to WiFi Network
-  Serial.println();
-  Serial.println();
-  Serial.print("Connecting to WiFi");
-  Serial.println("...");
-  WiFi.begin(ssid, password);
-
-  int i = 0;
-  while ((WiFi.status() != WL_CONNECTED) && (i < WiFiRetries)) {
-    i++;
-    delay(250);
-    Serial.print(".");
-    WiFi.begin(ssid, password);
-  }
-  if (i > 5) {
-    Serial.println(("WiFi connection failed: Connection timed out (" + (250*WiFiRetries) + " ms).")));
-  }
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("WiFi connected!");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-  }s
+float readThermocouple(){
+  return thermocouple.readCelsius();
 }
 
-float readThermocouple(){
-  return thermocouple.readCelsius()
+void printOLED(String input){
+  display.clearDisplay();
+  display.setTextColor(WHITE);  
+  display.setTextSize(2);
+  display.setCursor(0, 10);
+  display.print(input);
+  display.display();
+  delay(500);
 }
