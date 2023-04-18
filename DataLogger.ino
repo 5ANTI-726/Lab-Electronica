@@ -96,34 +96,31 @@ void loop() {
       if (!isnan(thermocouple)){
         //Update Thermocouple field
         ThingSpeak.writeField(myChannelNumber, 1, thermocouple, myWriteAPIKey);
-        printOLED("Temp. thermocouple (C): ");
-        printOLED(thermocouple);
+        OLEDFieldData("Temp. thermocouple (C): ", thermocouple);
         lastLog = millis();
       }
       else{
-        printOLED("Error reading thermocouple temperature.");
+        printOLED("Error with thermocouple temp.");
       }
 
       if (!isnan(humidity)){
         //Update Humidity field
         ThingSpeak.writeField(myChannelNumber, 2, humidity, myWriteAPIKey);
-        printOLED("Humidity (%): ");
-        printOLED(humidity);
+        OLEDFieldData("Humidity (%): ", humidity);
         lastLog = millis();
       }
       else{
-        printOLED("Error reading DHT11 humidity.");
+        printOLED("Error with DHT11 humidity.");
       }
 
       if (!isnan(temperature)){
         //Update Temperature field
         ThingSpeak.writeField(myChannelNumber, 3, temperature, myWriteAPIKey);
-        printOLED("Temp. DHT11 (C):");
-        printOLED(temperature);
+        OLEDFieldData("Temp. DHT11 (C):", temperature);
         lastLog = millis();
       }
       else{
-        printOLED("Error reading DHT11 temperature.");
+        printOLED("Error with DHT11 temp.");
       }
     }
     else{
@@ -147,9 +144,20 @@ float readThermocouple(){
 void printOLED(String input){
   display.clearDisplay();
   display.setTextColor(WHITE);  
-  display.setTextSize(2);
-  display.setCursor(0, 10);
-  display.print(input);
+  display.setTextSize(4);
+  display.setCursor(1, 1);
+  display.println(input); 
+  display.display();
+  delay(500);
+}
+void OLEDFieldData(String input, float value){
+  display.clearDisplay();
+  display.setTextColor(WHITE);  
+  display.setTextSize(3);
+  display.setCursor(1, 1);
+  display.println(input); 
+  display.setCursor(1, 30);
+  display.println(value);
   display.display();
   delay(500);
 }
