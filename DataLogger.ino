@@ -1,8 +1,3 @@
-//HANDLE CONVERSION TO STRING
-#include <iostream>
-#include <string>
-#include <sstream> 
-
 //ARDUINO SENSOR LIBRARY
 #include <Adafruit_Sensor.h>
 
@@ -32,13 +27,12 @@ DHT dht(DHTPIN, DHTTYPE);
 
 //THERMOCOUPLE
 #include "max6675.h"
-int thermoDO = 23;
-int thermoCS = 22;
-int thermoCLK = 24;
+unsigned int thermoDO = 23;
+unsigned int thermoCS = 22;
+unsigned int thermoCLK = 24;
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
 //OLED SCREEN
-#include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
 #define SCREEN_HEIGHT 64  // OLED display height, in pixels
