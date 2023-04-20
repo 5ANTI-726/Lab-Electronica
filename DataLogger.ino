@@ -76,7 +76,7 @@ void loop() {
 
       if (!isnan(thermocouple)){
         //Update Thermocouple field
-        ThingSpeak.writeField(myChannelNumber, 1, thermocouple, myWriteAPIKey);
+        ThingSpeak.setField(1, thermocouple);
         if(debugOLED){
           OLEDFieldData("Temp. thermocouple (C): ", thermocouple);
         }
@@ -89,7 +89,7 @@ void loop() {
 
       if (!isnan(humidity)){
         //Update Thermocouple field
-        ThingSpeak.writeField(myChannelNumber, 2, humidity, myWriteAPIKey);
+        ThingSpeak.setField(2, humidity);
         if(debugOLED){
           OLEDFieldData("Humidity (%): ", humidity);
         }
@@ -102,7 +102,7 @@ void loop() {
 
       if (!isnan(thermocouple)){
         //Update Thermocouple field
-        ThingSpeak.writeField(myChannelNumber, 3, temperature, myWriteAPIKey);
+        ThingSpeak.setField(3, temperature);
         if(debugOLED){
           OLEDFieldData("Temp. DHT11 (C): ", temperature);
         }
@@ -113,6 +113,7 @@ void loop() {
         }
       }
 
+      ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey)
       lastLog = millis();
     }
     if (WiFi.status() != WL_CONNECTED){
